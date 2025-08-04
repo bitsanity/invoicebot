@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+
+<!--
+  URL format:
+
+    ?id=<id>&bref=<businessref>&amount=<number>&curr=<currency>
+
+  Notes:
+
+  1. if id is not specified as a parameter:
+    - this is a new invoice, show user-editable fields and a submit btn
+    - initialize the fields with the optional parameter values
+
+  2. if id is present:
+    - initialize to show the invoice values in read-only fields
+    - ignore any other parameters
+-->
+
+<html>
+
+<head>
+  <title>UI for Ethereum Invoice Bot</title>
+
+  <link id="PageSkin" rel="stylesheet" type="text/css" href="invoice.css"/>
+  <link rel="icon" href="img/logo.svg" />
+
+  <meta charset="UTF-8"/>
+  <meta name="description"
+        content="UI for a smart contract that manages invoices and payments" />
+  <meta name="author" content="bitsanity" />
+  <meta name="keywords"
+    content="Ethereum,Point,Sale,PoS,Virtual,Cash,Register,Crypto,Retail" />
+
+  <script src="libs/jquery.min.js"></script>
+  <script src="libs/qrcode.min.js"></script>
+  <script src="libs/secp256k1.browserify.js"></script>
+  <script src="libs/jssha3.min.js"></script>
+  <script src="libs/ethereumjstx.browserify.js"></script>
+
+  <script src="libs/pubsub.js"></script>
+  <script src="libs/adilosjs.min.js"></script>
+
+  <script src="app/qrdialog.js"></script>
+  <script src="app/model.js"></script>
+  <script src="app/view.js"></script>
+  <script src="app/ctrl.js"></script>
+  <script src="app/utils.js"></script>
+</head>
+
+<body>
+
+<div id=QRDialog>
+<table width=100%>
+<tr>
+  <td align=left>
+    <button id=BackButton onclick="PubSub.publish('MainScreen')">BACK</button>
+  </td>
+</tr>
+<tr>
+  <td class="label" align=center valign=top width=100%>
+    <div id="ChallengeLabel">Signature Required</div>
+  </td>
+</tr>
+<tr>
+  <td>&nbsp;</td>
+</tr>
+<tr>
+  <td class=data align=center>
+    <div id="TxnDescription">Transaction Description</div>
+  </td>
+</tr>
+<tr>
+  <td align=center bgcolor=white height=500>
+    <span id="ChallengeArea">QR Code</span>
+  </td>
+</tr>
+<tr>
+  <td align=center>
+    <button id=RespondButton onclick="PubSub.publish('ScanResponse')">
+      <img src='/img/scanresponse.svg'
+           height=30
+           style="vertical-align:middle" />
+      SCAN RESPONSE
+    </button>
+  </td>
+</tr>
+</table>
+</div>
+
+<div id=CameraDialog>
+<table width=100%>
+<tr>
+  <td class="label" align=center valign=top width=100%>
+    <div id="CameraLabel">Show Your Response</div>
+  </td>
+</tr>
+<tr>
+  <td align=center bgcolor=white height=500>
+    <video id="ScannerVideo"
+           width=500 height=500
+           muted autoplay playsinline></video>
+  </td>
+</tr>
+<tr>
+  <td align=center>
+    <button id=CancelResponseButton onclick="PubSub.publish('CancelResponse')">
+      <img src='/img/cancel.svg' style="vertical-align:middle" height=25 />
+      &nbsp;CANCEL
+    </button>
+</tr>
+</table>
+</div>
+
+<div id=accountdiv>
+<table>
+<tr>
+  <td class=label colspan=2 align=center>
+    Please provide your sending address by one of the following methods:<p/>
+  </td>
+</tr>
+<tr>
+  <td class=label align=right>Enter Ethereum Address:</td>
+  <td>
+    <input type=text id=ethaddr class=data size=42 maxlength=42
+      value="0x..."
+      onblur="PubSub.publish('EthereumAddressSpecified')" ></input>
+  </td>
+</tr>
+<tr>
+  <td/>
+  <td>- OR -</td>
+</tr>
+<tr>
+  <td class=label align=right>Provide by ADILOS Identification:</td>
+  <td>
+    <button id=AdilosIdentButton onclick="PubSub.publish('ADILOSIdent')">
+      <img src='/img/qr-code.svg' height=20 style="vertical-align:middle" />
+      &nbsp;QR Exchange
+    </button>
+  </td>
+</tr>
+</table>
+</div>
+
+<div id=valuesdiv>
+<table>
+  <tr>
+    <td class=label align=right>Blockchain ID:</td>
+    <td><span id=idhex class=data>-loading-</span>
+  </tr>
+  <tr>
+    <td class=label align=right>Business Ref:</td>
+    <td><span id=bizref class=data>-loading-</span>
+  </tr>
+  <tr>
+    <td class=label align=right>Amount Owing:</td>
+    <td><span id=amtowing class=data>-loading-</span>&nbsp;
+        <span id=currency class=data>&nbsp;</span>
+  </tr>
+  <tr>
+    <td class=label align=right><span id=paylabel>&nbsp;</td>
+    <td><span id=payamount>&nbsp;</span>&nbsp;
+        <span id=submitbtn>&nbsp;</span></td>
+  </tr>
+</table>
+</div>
+
+<div id=eventsdiv>
+<table>
+<tr>
+  <td>
+    <span class=label>Events:</span>
+  </td>
+</tr>
+<tr>
+  <td>
+    <textarea id=eventsarea class=data rows=5 cols=50></textarea>
+  </td>
+</tr>
+</table>
+</div>
+
+<script type="text/javascript">
+  const SECP256K1 = require( 'secp256k1' )
+  const ADILOS = require( 'adilosjs' )
+  const SHA3 = require( 'js-sha3' )
+  const ETHJS = require( '@ethereumjs/tx' )
+
+  var global = (global) ? global : {}
+</script>
+
+<script type="module">
+  import QrScanner from "./libs/qr-scanner.min.js";
+
+  var scancb;
+  var scanner;
+
+  global.setVideo = function(video) {
+    if (scanner) {
+      scanner.destroy();
+    }
+
+    scanner = new QrScanner( video, result => {
+      scancb( result.data );
+    }, {
+      onDecodeError: error => {
+        console.log( error.toString() )
+        // nothing yet
+      },
+      highlightScanRegion: true,
+      highlightCodeOutline: true,
+      returnDetailedScanResult: true
+    } );
+  }
+
+  global.startQRScanner = function() {
+    if (scanner) scanner.start();
+  }
+
+  global.pauseQRScanner = function() {
+    if (scanner) scanner.pause();
+  }
+
+  global.setScannerCallback = function( cb ) {
+    scancb = cb;
+  }
+</script>
+
+<script type="text/javascript">
+
+  window.onload = (evt) => {
+    let usp = new URLSearchParams(window.location.search)
+    let idhex = usp.get('id')
+
+    if (idhex) {
+      PubSub.publish( 'ShowInvoice', idhex )
+    }
+    else {
+      PubSub.publish( 'NewInvoice', {
+        bref: usp.get('bref'),
+        amount: usp.get('amount'),
+        curr: usp.get('curr')
+      } )
+    }
+
+    setTimeout( () => {
+      global.setVideo( document.getElementById("ScannerVideo") );
+      global.setScannerCallback( (res) => {
+        global.pauseQRScanner();
+        PubSub.publish( 'QRScanned', res );
+      } )
+    }, 1000 )
+
+    PubSub.publish( 'MainScreen' )
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,6 @@
+#!/home/skull/nodejs/bin/node
+
+const cgi = require( './cgi.js' )
+
+cgi.doCGI( 'payTokensTxo' )
+

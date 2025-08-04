@@ -1,0 +1,10 @@
+adilosjs.min.js
+ethereumjstx.browserify.js
+jquery.min.js
+jssha3.min.js
+pubsub.js
+qrcode.min.js
+qr-scanner.min.js
+qr-scanner.umd.min.js
+qr-scanner-worker.min.js
+secp256k1.browserify.js

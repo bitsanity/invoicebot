@@ -1,0 +1,34 @@
+body {
+  background-color: white;
+  font-family: sans-serif;
+}
+
+button {
+  border: 1px solid green;
+  border-radius: 10px;
+  padding: 7px 15px 7px 15px;
+  accent-color: darkgreen;
+  font-weight: bold;
+}
+
+input {
+  color: darkgreen;
+  font-family: monospace;
+}
+
+select {
+  color: darkgreen;
+}
+
+th, td {
+  padding: 5px;
+}
+
+.label {
+  font-weight: bold;
+}
+
+.data {
+  color: darkgreen;
+  font-family: monospace;
+}
