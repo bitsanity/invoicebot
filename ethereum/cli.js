@@ -2,7 +2,6 @@ const fs = require('fs');
 const {Web3} = require('web3');
 const web3 =
   new Web3(new Web3.providers.WebsocketProvider("ws://localhost:8545"));
-
 //new Web3(new Web3.providers.WebsocketProvider("ws://10.0.0.113:8546"));
 
 const MYGASPRICE = '' + 4 * 1e9;
@@ -38,6 +37,7 @@ function usage() {
     '\tdeploy\n',
     '\tevents\n',
     '\tbalance\n',
+    '\tcurrencies <symbol>\n',
     '\tnewInvoice <bref> <owing> <curr>\n',
     '\tgetInvoice <idhex>\n',
     '\tpayEther <idhex> <amountwei>\n',
@@ -45,14 +45,15 @@ function usage() {
     '\taddToken <symbol> <tokaddr>\n',
     '\tremoveToken <symbol>\n',
     '\tsweep <wei>\n',
-    '\tsweepTokens <symbol> <quant> <toaddr>\n'
+    '\tsweepTokens <symbol> <quant> <toaddr>\n',
+    '\tchown <newowneraddress>\n',
   )
 }
 
 function deploy( eb ) {
   let con = new web3.eth.Contract( getABI() );
   con.deploy( {data:getBinary(), arguments: []} )
-  .send({from: eb, gas: 1500000, gasPrice: MYGASPRICE}, (err, hash) => {
+  .send({from: eb, gas: 1200000, gasPrice: MYGASPRICE}, (err, hash) => {
     if (err) {
       console.log( err.toString() )
       process.exit( 1 )
@@ -88,6 +89,10 @@ async function doCommand( idx, sca, cmd ) {
     else if (cmd == 'balance') {
       console.log( '\nPoS Balance ' + await web3.eth.getBalance(sca) + ' wei' )
     }
+    else if (cmd == 'currencies') {
+      let sym = process.argv[5]
+      console.log( await scon.methods.currencies(sym).call() )
+    }
     else if (cmd == 'newInvoice') {
       let bref = process.argv[5]
       let amnt = parseInt( process.argv[6] )
@@ -101,7 +106,7 @@ async function doCommand( idx, sca, cmd ) {
     }
     else if (cmd == 'getInvoice') {
       let id = process.argv[5]
-      let invx = await scon.methods.getInvoice(id).call()
+      let invx = await scon.methods.invoices(id).call()
       console.log( invx )
     }
     else if (cmd == 'payEther') {
@@ -131,7 +136,7 @@ async function doCommand( idx, sca, cmd ) {
       let tokaddr = process.argv[6]
       await scon.methods.addToken( curr, tokaddr ).send( {
         from: ebase,
-        gas: 2000000,
+        gas: 60000,
         gasPrice: MYGASPRICE
       } )
     }
@@ -160,6 +165,14 @@ async function doCommand( idx, sca, cmd ) {
       await scon.methods.sweepTokens( sym, quant, toaddr).send( {
         from: ebase,
         gas: 2000000,
+        gasPrice: MYGASPRICE
+      } )
+    }
+    else if (cmd == 'chown') {
+      let newowner = process.argv[5]
+      await scon.methods.chown( newowner ).send( {
+        from: ebase,
+        gas: 30000, // expect 27000
         gasPrice: MYGASPRICE
       } )
     }

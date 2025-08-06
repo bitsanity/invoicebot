@@ -12,6 +12,7 @@ contract Ownable {
     _;
   }
 
+  // 27000
   function chown( address payable newown ) external isOwner {
     _owner = newown;
   }

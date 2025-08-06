@@ -11,7 +11,8 @@ An invoicebot deployment includes:
 
 User interaction requires the free [SIMPLETH](https://github.com/bitsanity/simpleth) mobile app or any similar app that speaks the [ADILOS](https://github.com/bitsanity/ADILOS) protocol.
 
-NOTE: The httpd.conf file must include a MIME type definition `.js:text/javascript` to override the default `application/octet-stream`<br/>
+NOTE: The web server's `httpd.conf` file must include a MIME type definition `.js:text/javascript` to override the default `application/octet-stream`
+
 NOTE: The web app requires use of the camera. Some browsers prompt the user to allow camera access, other browsers may behave differently.
 
 
@@ -19,17 +20,17 @@ NOTE: The web app requires use of the camera. Some browsers prompt the user to a
 
 `/invoice.html` loads the page assuming the user wants to create a new, blank invoice.
 
-`/invoice.html?bref=<reference>&amount=<float>&curr=<symbol>` for a new invoice with preloaded fields.
+`/invoice.html?bref=<ref>&amount=<float>&curr=<symbol>` for a new invoice with preloaded fields.
 
-`bref` is a reference to the CRM, accounting or some other external business sytem.
-
-`amount` is specified in the UI in ether or tokens not wei and micro-cents.
-
-`curr` is ETH or the symbol for any stablecoin (e.g. USDT, USDC) supported by the invoicebot.
+parameters:
+- **bref** is a reference to an external business sytem in order to tie this invoice to an entry in that system (what is this payment for).
+- **amount** is floating-point in ether or tokens, not integer wei and microcents.
+- **curr** is ETH or the symbol for any stablecoin (e.g. USDT, USDC) supported by the invoicebot.
 
 `/invoice.html?id=<invoiceid>` to view the invoice and all associated events, and to pay the invoice.
 
-`id` will be a 32-byte hex string, a unique hash assigned by invoicebot when the invoice was created.
+parameters:
+- id will be a 32-byte hex string, a unique hash assigned by invoicebot when the invoice was created.
 
 
 **Use**:
