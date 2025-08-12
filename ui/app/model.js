@@ -15,6 +15,10 @@ var MODEL = (function() {
     return await doCGI( '/cgi-bin/getInvoice?id=' + invoiceid )
   }
 
+  async function allInvoices() {
+    return await doCGI( '/cgi-bin/allInvoices' )
+  }
+
   async function getEvents( invoiceid ) {
     return await doCGI( '/cgi-bin/getEvents?id=' + invoiceid )
   }
@@ -38,10 +42,10 @@ var MODEL = (function() {
       '/cgi-bin/approveTokensTxo?amount=' + amt + '&curr=' + cur )
   }
 
-  async function payTokensTxo( iid, amt, cur, ethaddr ) {
+  async function payTokensTxo( iid, amt, cur, approver ) {
     return await doCGI(
       '/cgi-bin/payTokensTxo?' + 'id=' + iid + '&amount=' + amt +
-      '&curr=' + cur + '&approver=' + ethaddr )
+      '&curr=' + cur + '&approver=' + approver )
   }
 
   async function sendRawTx( rawtxhex ) {
@@ -52,6 +56,7 @@ var MODEL = (function() {
     gasPrice:gasPrice,
     getInvoice:getInvoice,
     getEvents:getEvents,
+    allInvoices:allInvoices,
     getNonce:getNonce,
     newInvoiceTxo:newInvoiceTxo,
     payEtherTxo:payEtherTxo,

@@ -44,7 +44,7 @@ function usage() {
     '\tpayTokens <idhex> <symbol> <amount> <appvr>\n',
     '\taddToken <symbol> <tokaddr>\n',
     '\tremoveToken <symbol>\n',
-    '\tsweep <wei>\n',
+    '\tsweep <wei> <toaddr>\n',
     '\tsweepTokens <symbol> <quant> <toaddr>\n',
     '\tchown <newowneraddress>\n',
   )

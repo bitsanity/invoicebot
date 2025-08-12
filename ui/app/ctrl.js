@@ -4,6 +4,7 @@ var CONTROLLER = (function() {
 
   var challB64
   var ethaddr, nonce
+  var previoustxsent
   var pendingTxnQueue = []
 
   async function commitNewInvoice() {
@@ -49,6 +50,7 @@ var CONTROLLER = (function() {
   // - an ADILOS Ident response in B64, or
   // - an ADILOS Sign response in hexadecimal
   async function qrScanned( rsp ) {
+    global.pauseQRScanner();
 
     let isHex = rsp.startsWith('0x') || /^([0-9a-fA-F]+)$/.test(rsp)
 
@@ -111,11 +113,12 @@ var CONTROLLER = (function() {
     }
 
     PubSub.publish( 'MainScreen' )
-    setTimeout( processQueue, 100 )
+    setTimeout( processQueue, 1000 )
   }
 
   async function processQueue() {
-    if (!ethaddr || !nonce) {
+
+    if (!ethaddr || null == nonce) {
       PubSub.publish( 'AddressRequired' )
       return
     }
@@ -134,14 +137,15 @@ var CONTROLLER = (function() {
     if (thobj.r && thobj.s && thobj.v) {
       let signedtx = ETHJS.Transaction.fromTxData( thobj );
       let serializedtx = '0x' + signedtx.serialize().toString('hex')
-      let txhash = await MODEL.sendRawTx( serializedtx )
+
+      if (serializedtx === previoustxsent) return // prevent repetition
+      let txresult = await MODEL.sendRawTx( serializedtx )
+      previoustxsent = serializedtx
       nonce++
 
       pendingTxnQueue.shift() // removes first element
-      setTimeout( function() {
-        PubSub.publish( 'TransactionSent', txhash )
-      }, 100 )
-      setTimeout( processQueue, 100 )
+      PubSub.publish( 'TransactionSent', txresult.transactionHash )
+      setTimeout( processQueue, 1000 )
       return
     }
 
@@ -152,6 +156,7 @@ var CONTROLLER = (function() {
   }
 
   async function rollTransaction( txobj, descrip ) {
+
     let hxo = {
       gasPrice: UTILS.toHex(txobj.gasPrice),
       gasLimit: UTILS.toHex(txobj.gas),
@@ -203,9 +208,16 @@ var CONTROLLER = (function() {
   } )
 
   PubSub.subscribe( 'PayInvoice', async () => {
+    if (!ethaddr) {
+      alert( 'Please identify your sending address first and try again.' )
+      PubSub.publish( 'AddressRequired' )
+      return
+    }
+
     let iid = $('#idhex').html()
     let amt = $('#payamtinput').val()
-    let cur = $('#currsel :selected').text()
+    let invx = await MODEL.getInvoice( iid )
+    let cur = invx.curr
 
     let amtnum = Number.parseFloat( amt )
     if (!amtnum || amtnum <= 0.0) {
@@ -218,7 +230,7 @@ var CONTROLLER = (function() {
       // its for. Include ether payment in the call to InvoiceBot.payEther()
 
       let txo = await MODEL.payEtherTxo( iid, amt )
-      rollTransaction( txo, 'InvoiceBot.payEther(' + amt + ' ether )' )
+      rollTransaction( txo, 'InvoiceBot.payEther( ' + amt + ' ether )' )
     }
     else {
       // Token - first we help the user do a token.approve() call then
@@ -230,8 +242,9 @@ var CONTROLLER = (function() {
         'ERC20Token(' + cur + ').approve( spender=InvoiceBot, amount= ' + amt +
         ' as units )' )
 
-      txo = await MODEL.payTokensTxo( iid, amt, cur, ethaddr )
-      rollTransaction( txo,
+      let txo2 = await MODEL.payTokensTxo( iid, amt, cur, ethaddr )
+
+      rollTransaction( txo2,
         'InvoiceBot.payTokens( amount: ' + amt + ' ' + cur +
         ', approver=' + ethaddr + '\n)' )
     }

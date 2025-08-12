@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+
+<!--
+  Report of all invoices in the smart contract along with payment information
+-->
+
+<html>
+
+<head>
+  <title>Ethereum Invoice Bot - All Invoices Report</title>
+
+  <link id="PageSkin" rel="stylesheet" type="text/css" href="invoice.css"/>
+  <link rel="icon" href="img/logo.svg" />
+
+  <meta charset="UTF-8"/>
+  <meta name="description"
+        content="query smart contract to determine invoices and payments" />
+  <meta name="author" content="bitsanity" />
+  <meta name="keywords"
+    content="Ethereum,Point,Sale,PoS,Virtual,Cash,Register,Crypto,Retail" />
+
+  <script src="libs/jquery.min.js"></script>
+  <script src="libs/pubsub.js"></script>
+  <script src="app/model.js"></script>
+</head>
+
+<body>
+<div id=reportdiv>
+<table id=invoicestable>
+  <tr bgcolor=lightgrey>
+    <th>BLOCKCHAIN ID</th>
+    <th>BREF</th>
+    <th>CREATED</th>
+    <th>OWING</th>
+    <th>CURR</th>
+  </tr>
+</table>
+</div>
+
+<script type="text/javascript">
+
+  const MONTHS =
+    ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+  function readableDate( tstamp ) {
+    let ts = new Date( tstamp*1000 )
+    let day = ts.getUTCDate()
+    if (day < 10) day = '0' + day
+    let hr = ts.getUTCHours()
+    if (hr < 10) hr = '0' + hr
+    let min = ts.getUTCMinutes()
+    if (min < 10) min = '0' + min
+
+    return day + MONTHS[ts.getUTCMonth()] + ts.getUTCFullYear() +
+           ' ' + hr + min + 'z'
+  }
+
+  window.onload = async (evt) => {
+
+    let invoices = await MODEL.allInvoices()
+    let objectkeys = Object.keys( invoices )
+    if (!objectkeys || objectkeys.length == 0) {
+      alert( 'no invoices' )
+      return
+    }
+
+    objectkeys.forEach( objkey => {
+      $('#invoicestable tbody').append(
+        '<tr>' +
+        '<td class=data><a href=/invoice.html?id=' + objkey + '>' +
+          objkey + '</a></td>' +
+        '<td class=data>' + invoices[objkey].bref + '</td>' +
+        '<td class=data>' + readableDate(invoices[objkey].created) + '</td>' +
+        '<td class=data>' + invoices[objkey].owing + '</td>' +
+        '<td class=data>' + invoices[objkey].curr + '</td>' +
+        '</tr>' )
+    } )
+  }
+
+</script>
+
+</body>
+</html>

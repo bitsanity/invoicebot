@@ -1,3 +1,4 @@
+const fs = require( 'fs' )
 const {Web3} = require('web3');
 
 const web3 =
@@ -21,6 +22,11 @@ BigInt.prototype.toJSON = function () {
 };
 
 var INVOICEBOT = new web3.eth.Contract( INVOICEBOTABI, INVOICEBOTSCA )
+var LOG = fs.createWriteStream( './log.txt', {flags:'a'} )
+
+function log( msg ) {
+  LOG.write( '' + Date.now() + ' ' + msg + '\n' )
+}
 
 function error( _code, _message ) {
   let rspobj = {
@@ -38,6 +44,7 @@ function error( _code, _message ) {
 }
 
 function answer( response ) {
+
   let rspobj = {
     jsonrpc: "2.0",
     result: response,
@@ -50,6 +57,8 @@ function answer( response ) {
 }
 
 async function respondTo( meth, reqobj ) {
+  log( 'request: ' + meth + ' ' + JSON.stringify(reqobj,null,2) )
+
   let gpx = await web3.eth.getGasPrice()
 
   if (meth === 'gasPrice') {
@@ -61,18 +70,75 @@ async function respondTo( meth, reqobj ) {
   }
 
   if (meth === 'getInvoice') {
-    answer( await INVOICEBOT.methods.invoices('' + reqobj.id).call() )
+    let invx = await INVOICEBOT.methods.invoices('' + reqobj.id).call()
+    if (invx.curr === 'ETH') {
+      invx.owing = web3.utils.fromWei( invx.owing, 'ether' )
+    }
+    else {
+      let toksca = await INVOICEBOT.methods.currencies(invx.curr).call()
+      let tokCon = new web3.eth.Contract( IERC20ABI, toksca )
+      let dec = parseInt( await tokCon.methods.decimals().call() )
+      invx.owing = invx.owing / BigInt(Math.pow(10, dec))
+    }
+
+    answer( invx )
+  }
+
+  if (meth === 'allInvoices') {
+    let invxEvts = await INVOICEBOT.getPastEvents( 'allEvents', {
+      fromBlock: 0,
+      toBlock: 'latest',
+    } )
+
+    let invoices = {}
+    for( let ii = 0; ii < invxEvts.length; ii++ ) {
+      let evtname = invxEvts[ii].event
+      let evt = invxEvts[ii].returnValues
+      let invx = await INVOICEBOT.methods.invoices('' + evt.id).call()
+
+      if (evtname === 'NewInvoice') {
+        if (!invoices[invx.id]) invoices[invx.id] = {}
+
+        invoices[invx.id].created =
+          (await web3.eth.getBlock(invxEvts[ii].blockNumber)).timestamp
+
+        if ( invx.curr === 'ETH' ) {
+          invoices[invx.id].owing = web3.utils.fromWei( invx.owing, 'ether' )
+        }
+        else {
+          let toksca =
+            await INVOICEBOT.methods.currencies( invx.curr ).call()
+          let tokCon = new web3.eth.Contract( IERC20ABI, toksca )
+          let dec = parseInt( await tokCon.methods.decimals().call() )
+          invoices[invx.id].owing = invx.owing / BigInt(Math.pow(10, dec))
+        }
+
+        invoices[invx.id].bref = invx.bref
+        invoices[invx.id].curr = invx.curr
+      }
+    }
+
+    answer( invoices )
   }
 
   if (meth === 'getEvents') {
-    answer( await INVOICEBOT.getPastEvents( 'allEvents', {
+    let invxs = await INVOICEBOT.getPastEvents( 'allEvents', {
       fromBlock: 0,
       toBlock: 'latest',
-      filter: { id: '' + reqobj.id } } ) )
+      filter: { id: '' + reqobj.id } } )
+
+    if (null == invxs) invxs = []
+
+    for (let ii = 0; ii < invxs.length; ii++) {
+      invxs[ii].tstamp =
+        (await web3.eth.getBlock(invxs[ii].blockNumber)).timestamp
+    }
+
+    answer( invxs )
   }
 
   if (meth === 'sendRawTx') {
-    answer( await web3.eth.sendSignedTransaction(reqobj.rawTxHex) )
+    answer( await web3.eth.sendSignedTransaction(reqobj.raw) )
   }
 
   if (meth === 'newInvoiceTxo') {
@@ -101,7 +167,7 @@ async function respondTo( meth, reqobj ) {
   }
 
   if (meth === 'payEtherTxo') {
-    let wei = await web3.utils.toWei( reqobj.amount )
+    let wei = await web3.utils.toWei( reqobj.amount, 'ether' )
     let calldata = INVOICEBOT.methods.payEther( reqobj.id ).encodeABI()
     answer( {
       to: INVOICEBOTSCA,
@@ -121,6 +187,10 @@ async function respondTo( meth, reqobj ) {
   let tokenunits = reqobj.amount * Math.pow( 10, decimals )
 
   if (meth === 'approveTokensTxo') {
+    log( 'toksca: ' + tokensca )
+    log( 'decimals: ' + decimals )
+    log( 'tokenunits: ' + tokenunits )
+
     // The caller will be the approver, InvoiceBot will be the spender
     let calldata =
       tokenContract.methods.approve( INVOICEBOTSCA, tokenunits ).encodeABI()

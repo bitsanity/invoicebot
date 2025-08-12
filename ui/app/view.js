@@ -6,7 +6,8 @@ var VIEW = (function() {
     ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
   function formatEvent( evt ) {
-    let ts = new Date( evt.tstamp )
+
+    let ts = new Date( evt.tstamp*1000 )
     let mon = MONTHS[ts.getUTCMonth()]
     let day = ts.getUTCDate()
     if (day < 10) day = '0' + day
@@ -16,8 +17,8 @@ var VIEW = (function() {
     if (min < 10) min = '0' + min
 
     return day + ' ' + mon + ' ' + ts.getUTCFullYear() + ' ' +
-           hr + min + 'Z ' + evt.name + ' ' +
-        ((evt.name === 'Receipt') ? evt.amount : "")
+           hr + min + 'Z ' + evt.event + ' ' +
+        ((evt.event === 'Receipt') ? evt.returnValues.amount : "")
   }
 
   function setMainScreen() {
@@ -50,11 +51,15 @@ var VIEW = (function() {
       $('#currency').html( invx.curr )
 
       evts = await MODEL.getEvents( invxid )
+
       contents = ''
+
       evts.forEach( evt => {
         contents += VIEW.formatEvent( evt ) + '\n'
       } )
+
       $('#eventsarea').val( contents )
+
       if (parseInt(invx.owing) > 0) {
         $('#paylabel').html( 'Amount to Pay Now:' )
         $('#payamount').html(
@@ -90,6 +95,7 @@ var VIEW = (function() {
 
   function showAccountsDialog() {
     $('#valuesdiv').hide()
+    $('#eventsdiv').hide()
     $( "#accountdiv").show()
   }
 
