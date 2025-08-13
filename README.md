@@ -1,6 +1,6 @@
 invoicebot is a component to be included in an e-commerce website, enabling the site to create invoices, and anybody to view and pay them.
 
-See the demonstration on [YouTube](https://youtube.com/tbd)
+See the **demonstration** on [YouTube](https://youtu.be/h2BUB_4H_YY)
 
 An invoicebot deployment includes:
 - a smart contract, "InvoiceBot" deployed on Ethereum or EVM-compatible blockchain
