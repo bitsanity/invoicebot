@@ -69,6 +69,20 @@ async function respondTo( meth, reqobj ) {
     answer( await web3.eth.getTransactionCount(reqobj.address) )
   }
 
+  if (meth === 'getBalance') {
+    if (reqobj.curr === 'ETH') {
+      let it = await web3.eth.getBalance( INVOICEBOTSCA )
+      answer( await web3.utils.fromWei(it, 'ether') )
+    } else {
+      let toksca = await INVOICEBOT.methods.currencies(reqobj.curr).call()
+      let tokCon = new web3.eth.Contract( IERC20ABI, toksca )
+      let dec = parseInt( await tokCon.methods.decimals().call() )
+      let it =   BigInt(await tokCon.methods.balanceOf(INVOICEBOTSCA).call())
+               / BigInt(Math.pow(10, dec))
+      answer( it )
+    }
+  }
+
   if (meth === 'getInvoice') {
     let invx = await INVOICEBOT.methods.invoices('' + reqobj.id).call()
     if (invx.curr === 'ETH') {
@@ -138,7 +152,12 @@ async function respondTo( meth, reqobj ) {
   }
 
   if (meth === 'sendRawTx') {
-    answer( await web3.eth.sendSignedTransaction(reqobj.raw) )
+    let ans = await web3.eth.sendSignedTransaction(reqobj.raw)
+    if (!ans) {
+      error( 500, 'failed to send raw transaction' )
+    }
+
+    answer( ans )
   }
 
   if (meth === 'newInvoiceTxo') {
@@ -178,8 +197,21 @@ async function respondTo( meth, reqobj ) {
     } )
   }
 
-  // if we haven't returned by this point, we will need the token contract
-  // to ask it how many decimals it has
+  if (meth === 'sweepTxo') {
+    let wei = await web3.utils.toWei( reqobj.amount, 'ether' )
+    let calldata =
+      INVOICEBOT.methods.sweep( wei, reqobj.toaddr ).encodeABI()
+    answer( {
+      to: INVOICEBOTSCA,
+      value: 0,
+      gas: 50000,
+      gasPrice: gpx,
+      data: calldata
+    } )
+  }
+
+  // if we haven't returned by this point, we have a curr parameter and will
+  // need the token contract to ask it how many decimals it has
 
   let tokensca = await INVOICEBOT.methods.currencies( reqobj.curr ).call()
   let tokenContract = new web3.eth.Contract( IERC20ABI, tokensca )
@@ -187,10 +219,6 @@ async function respondTo( meth, reqobj ) {
   let tokenunits = reqobj.amount * Math.pow( 10, decimals )
 
   if (meth === 'approveTokensTxo') {
-    log( 'toksca: ' + tokensca )
-    log( 'decimals: ' + decimals )
-    log( 'tokenunits: ' + tokenunits )
-
     // The caller will be the approver, InvoiceBot will be the spender
     let calldata =
       tokenContract.methods.approve( INVOICEBOTSCA, tokenunits ).encodeABI()
@@ -212,6 +240,19 @@ async function respondTo( meth, reqobj ) {
       to: INVOICEBOTSCA,
       value: 0,
       gas: 200000,
+      gasPrice: gpx,
+      data: calldata
+    } )
+  }
+
+  if (meth === 'sweepTokensTxo') {
+    let calldata = INVOICEBOT.methods.sweepTokens(
+      reqobj.curr, tokenunits, reqobj.toaddr ).encodeABI()
+
+    answer( {
+      to: INVOICEBOTSCA,
+      value: 0,
+      gas: 70000,
       gasPrice: gpx,
       data: calldata
     } )

@@ -11,6 +11,10 @@ var MODEL = (function() {
     return await doCGI( '/cgi-bin/gasPrice' )
   }
 
+  async function getBalance( curr ) {
+    return await doCGI( '/cgi-bin/getBalance?curr=' + curr )
+  }
+
   async function getInvoice( invoiceid ) {
     return await doCGI( '/cgi-bin/getInvoice?id=' + invoiceid )
   }
@@ -48,12 +52,25 @@ var MODEL = (function() {
       '&curr=' + cur + '&approver=' + approver )
   }
 
+  async function sweepTxo( amt, toaddr ) {
+    return await doCGI(
+      '/cgi-bin/sweepTxo?&amount=' + amt + '&toaddr=' + toaddr )
+  }
+
+  async function sweepTokensTxo( curr, amt, toaddr ) {
+    return await doCGI(
+      '/cgi-bin/sweepTokensTxo?curr=' + curr +
+      '&amount=' + amt +
+      '&toaddr=' + toaddr )
+  }
+
   async function sendRawTx( rawtxhex ) {
     return await doCGI( '/cgi-bin/sendRawTx?' + 'raw=' + rawtxhex )
   }
 
   return {
     gasPrice:gasPrice,
+    getBalance:getBalance,
     getInvoice:getInvoice,
     getEvents:getEvents,
     allInvoices:allInvoices,
@@ -62,6 +79,8 @@ var MODEL = (function() {
     payEtherTxo:payEtherTxo,
     approveTokensTxo:approveTokensTxo,
     payTokensTxo:payTokensTxo,
+    sweepTxo:sweepTxo,
+    sweepTokensTxo:sweepTokensTxo,
     sendRawTx:sendRawTx
   }
 

@@ -42,7 +42,7 @@ contract InvoiceBot is Ownable {
     );
 
     emit NewInvoice( _id, _bref );
-  }
+  } // 141671, more for longer bref
 
   function payEther( bytes32 _id ) external payable returns (uint256 newbal) {
     require( currencies[invoices[_id].curr] == address(1),
@@ -56,7 +56,7 @@ contract InvoiceBot is Ownable {
     if (invoices[_id].owing == 0) {
       emit PaidInFull(_id);
     }
-  }
+  } // 30086
 
   function payTokens(
     bytes32 _id, string calldata _toksym, uint256 _amount, address _approver )
@@ -79,31 +79,31 @@ contract InvoiceBot is Ownable {
     if (0 == invoices[_id].owing) {
       emit PaidInFull(_id);
     }
-  }
+  } // 45098
 
   constructor() {
     currencies["ETH"] = address(1);
-  }
+  } // 1,189,606
 
   function addToken( string calldata _symbol, address _erc20tokenaddress )
   external isOwner {
     IERC20 tok = IERC20(_erc20tokenaddress);
     require( tok.totalSupply() > 0, "invalid token address" );
     currencies[_symbol] = _erc20tokenaddress;
-  }
+  } // 52349
 
   function removeToken( string calldata _symbol ) external isOwner {
     currencies[_symbol] = address(0);
-  }
+  } // 24568
 
   function sweep( uint256 _amount, address payable _to ) external isOwner {
     _to.transfer( _amount ); // throws on error
-  }
+  } // 31054
 
   function sweepTokens(
     string calldata _symbol, uint256 _quantity, address _to )
   external isOwner {
     IERC20 tok = IERC20( currencies[_symbol] );
     tok.transfer( _to, _quantity );
-  }
+  } // 55532
 }
